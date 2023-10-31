@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Pong in a Day</title>
+        <style>
+            body,html {
+                margin: 0px;
+                padding: 0px;
+                width:100%;
+                height: 100%;
+                overflow-y: hidden;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas class="main"></canvas>
+        <script>
+            var main = document.getElementsByClassName("main")[0];
+            main.width = window.innerWidth;
+            main.height = window.innerHeight;
+
+            var playerKeyState = 0;
+            var test ="null";
+
+            var score1 = 0;
+            var score2 = 0;
+
+            document.body.onkeydown = function(e) {
+                switch(e.keyCode) {
+                    case 38:
+                        playerKeyState = -1;
+                        break;
+                    case 40:
+                        playerKeyState = 1;
+                        break;
+                }
+            };
+
+            document.body.onkeyup = function(e) {
+                if(e.keyCode == 38 || e.keyCode == 40) {
+                    playerKeyState = 0;
+                }
+            };
+
+            var context = main.getContext("2d");
+
+            class paddle {
+                constructor(context, side, inputFunction) {
+                    this.context = context;
+                    this.inputFunction = inputFunction
+                    this.margin = 10;
+                    this.paddleWidth = 20;
+                    this.paddleHeight = 150;
+                    this.side = side;
+                    switch(side) {
+                    case "left":
+                        this.x = this.margin;
+                    break;
+                    case "right":
+                        this.x = window.innerWidth - (this.paddleWidth + this.margin);
+                    break;
+                    }
+                    this.y = 0.5*window.innerHeight;
+                    this.velocity = 0;
+                    this.maxAcceleration = 0.005;
+                    this.previousVelocity = this.velocity;
+                }
+                drawPaddle(time) {
+                    this.y += time * this.velocity;
+                    if(this.y < this.paddleHeight*0.5) {
+                        this.y = this.paddleHeight*0.5;
+                        this.velocity = 0;
+                    }
+                    if(this.y > main.height-this.paddleHeight*0.5) {
+                        this.y = main.height-this.paddleHeight*0.5;
+                        this.velocity = 0;
+                    }
+                    this.velocity += time*this.maxAcceleration*this.inputFunction();
+                    if(this.inputFunction() == 0 && Math.abs(this.velocity) > 0 && !(Math.abs(this.velocity - time*this.maxAcceleration) >= Math.abs(this.velocity))) {
+                       this.velocity -= time*this.maxAcceleration;
+                    } else if(Math.abs(this.velocity - time*this.maxAcceleration) >= Math.abs(this.velocity) && this.inputFunction() == 0) {
+                        this.velocity = 0;
+                    }
+                    this.previousVelocity = this.velocity;
+                    context.fillStyle = "white";
+                    this.context.fillRect(this.x, this.y-0.5*this.paddleHeight, this.paddleWidth, this.paddleHeight);
+                }
+                collision(points) {
+                    for(var i = 0; i < points.length; i++) {
+                        switch(this.side) {
+                        case "left":
+                            if(points[i][0] >= this.x && points[i][0] <= this.x+this.paddleWidth && points[i][1] >= this.y-this.paddleHeight*0.5 && points[i][1] <= this.y+this.paddleHeight*0.5) {
+                                return true;
+                                test = "yes";
+                            }
+                        break;
+                        case "right":
+                            if(points[i][0] >= this.x && points[i][0] <= this.x+this.paddleWidth && points[i][1] >= this.y-this.paddleHeight*0.5 && points[i][1] <= this.y+this.paddleHeight*0.5) {
+                                return true;
+                                test = "yes";
+                            }
+                        break;
+                        }
+                    }
+                }
+            }
+
+            class ball {
+                constructor(context,paddles) {
+                    this.paddles = paddles;
+                    this.x = 0.5 * main.width;
+                    this.y = 0.5*main.height;
+                    this.context = context;
+                    this.velocity = 0.75;
+                    this.angle = Math.PI*coinFlip()+Math.PI/4+(Math.floor(Math.random()*10)/1000)*Math.PI;
+                    this.width = 30;
+                }
+                drawBall(time) {
+                    this.x += time*this.velocity*Math.cos(this.angle);
+                    this.y += time*this.velocity*Math.sin(this.angle);
+                    this.context.fillStyle = "white";
+                    this.context.fillRect(this.x-0.5*this.width, this.y-0.5*this.width, this.width, this.width);
+                    for(var i = 0; i < this.paddles.length; i++) {
+                        if(this.paddles[i].collision([[this.x-0.5*this.width, this.y+0.5*this.width],[this.x-0.5*this.width, this.y-0.5*this.width],[this.x+0.5*this.width, this.y-0.5*this.width],[this.x+0.5*this.width, this.y+0.5*this.width]])) {
+                            this.angle += Math.PI+(Math.floor(Math.random()*10)/100);
+                            while(this.paddles[i].collision([[this.x-0.5*this.width, this.y+0.5*this.width],[this.x-0.5*this.width, this.y-0.5*this.width],[this.x+0.5*this.width, this.y-0.5*this.width],[this.x+0.5*this.width, this.y+0.5*this.width]])) {
+                                this.x += Math.cos(this.angle)/Math.abs(Math.cos(this.angle));
+                                this.y += Math.sin(this.angle)/Math.abs(Math.sin(this.angle));
+                            }
+                            this.x += 5*Math.cos(this.angle)/Math.abs(Math.cos(this.angle));
+                            this.y += 5*Math.sin(this.angle)/Math.abs(Math.sin(this.angle));
+                        }
+                        console.log("test");
+                    }
+                    if(this.x-0.5*this.width <= 0 || this.x+0.5*this.width >= main.width) {
+                        if(this.x-0.5*this.width <= 0) {
+                            score2 ++;
+                        } else {
+                            score1 ++;
+                        }
+                        this.x = 0.5 * main.width;
+                        this.y = 0.5*main.height;
+                        this.angle = Math.PI*coinFlip()+Math.PI/4+(Math.floor(Math.random()*100)/1000)*Math.PI;
+                    }
+                    if(this.y - 0.5*this.width <= 0 || this.y+0.5*this.width >= main.height) {
+                        this.angle = this.angle * -1;
+                        if(this.y - 0.5*this.width <= 0) {
+                            this.y = 0.5*this.width + 1;
+                        } else if (this.y + 0.5*this.width >= this.height) {
+                            this.y = main.height - 0.5*this.width - 1;
+                        }
+                    }
+                }
+            }
+
+
+            var joey = new paddle(context,"left", keyboardInput);
+            var jimmy = new paddle(context, "right");
+            jimmy.inputFunction = player2AI;
+
+            var theBall = new ball(context, [joey, jimmy]);
+
+            var previous;
+            var rumymummy = 0;
+
+            function drawFrame(timestamp) {
+                if(previous == undefined) {
+                    previous = timestamp;
+                }
+                context.fillStyle = "black";
+                context.fillRect(0, 0, main.width, main.height);
+                context.fillStyle = "white";
+                context.fillText(score1, 100, 100);
+                context.fillText(score2, main.width-100, 100);
+                joey.drawPaddle(timestamp-previous);
+                jimmy.drawPaddle(timestamp-previous);
+                theBall.drawBall(timestamp-previous);
+                previous = timestamp;
+                rumymummy++;
+                requestAnimationFrame(drawFrame);
+            }
+
+            function keyboardInput() {
+                return playerKeyState;
+            }
+
+            function player2AI() {
+                let leeway = 0;
+                if(theBall.y >= jimmy.y+0.5*jimmy.paddleHeight+leeway) {
+                    return 1;
+                } else if(theBall.y <= jimmy.y-(0.5*jimmy.paddleHeight)+leeway) {
+                    return -1;
+                } else {
+                    return 0;
+                }
+            }
+
+            function coinFlip() {
+                var result = Math.floor(Math.random()*2);
+                switch(result) {
+                    case 0:
+                        return -1;
+                        break;
+                    case 1:
+                        return 1;
+                        break;
+                }
+            }
+
+            requestAnimationFrame(drawFrame);
+        </script>
+    </body>
+</html>
